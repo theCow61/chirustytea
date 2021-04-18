@@ -8,11 +8,16 @@ edition = "2018"
 
 [dependencies]
 telegram-bot = "0.8.0" 
-futures = "0.3"
-tokio = { version = "0.2.25", features = ["full"] }
+#futures = "0.3"
+#tokio = { version = "0.2.25", features = ["full"] }
 dotenv = "0.15.0"
 serde = "1.0.123"
 serde_json = "1.0.64"
 serde_derive = "1.0.123"
 regex = "1.4.3"
 lazy_static = "1.4.0"
+#async-std = "1.9.0"
+
+[dependencies.async-std]
+version = "1.9.0"
+features = ["tokio02"]
