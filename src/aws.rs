@@ -60,7 +60,7 @@ impl<'a> Aws<'a>{
             sse_customer_algorithm: None,
             version_id: None,
         }).await.unwrap();
-        result.body.unwrap()
+        return result.body.unwrap();
     }
 
 }

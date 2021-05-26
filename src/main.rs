@@ -6,6 +6,7 @@ use rusoto_core::Region;
 use rusoto_s3::S3Client;
 use async_std::stream::StreamExt;
 use async_std::task;
+use async_std::io::Read;
 //use async_compat::{Compat, CompatExt};
 //use smol::prelude::*;
 //use smol::{io, Async};
