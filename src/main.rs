@@ -18,7 +18,7 @@ use async_std::io::Read;
 // use telegram_bot::prelude::*;
 //use telegram_bot::{Api, Error, Message, MessageKind, /*ParseMode,*/ UpdateKind};
 
-//const WORDLIST_PATH: &str = "wl.txt";
+const WORDLIST_PATH: &str = "wl.txt";
 
 //pub struct Commandment<'bob> {
 //    api: &'bob Api,
@@ -290,34 +290,61 @@ use async_std::io::Read;
 //}
 
 
-#[derive(BotCommand)]
-#[command(rename = "lowercase", description = "Commands")]
-enum Command {
-    #[command(description = "Help menu.")]
-    Help,
 
-    #[command(description = "Get CowCoin balance.")]
-    Balance(String), // Maybe remove the (String)
+//                lazy_static::lazy_static! {
+//                    // static ref SET: regex::RegexSet = regex::RegexSet::new(&[
+//                    //     r"(^/transfer)( +)(\d+)( +)(@\w+)", r"/get_ball",
+//                    // ]).unwrap();
+//                    static ref SET: [regex::Regex; 5] = [
+//                        regex::Regex::new(r"/get_ball").unwrap(),
+//                        regex::Regex::new(r"(^/transfer)( +)(\d+)( +)(@\w+)").unwrap(),
+//                        regex::Regex::new(r"/credits_global").unwrap(),
+//                        regex::Regex::new(r"/ls").unwrap(),
+//                        regex::Regex::new(r"(^/download)( +)(\w+)").unwrap(),
+//                    ];
+                    
+//                    //static ref WORDLIST_VALS: String = async_std::fs::read_to_string(WORDLIST_PATH).await.unwrap();
+//                    static ref WORDLIST_VALS: String = std::fs::read_to_string(WORDLIST_PATH).unwrap();
+//                }
 
-    #[command(description = "Transfer CowCoin.", parse_with = "split")]
-    Transfer { amount: u8, to_username: String },
-}
+async fn bruh(cx: UpdateWithCx<AutoSend<Bot>, Message>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    lazy_static::lazy_static! {
+        static ref SET: [regex::Regex; 4] = [
+            regex::Regex::new(r"/balance").unwrap(),
+            regex::Regex::new(r"(^/transfer)( +)(\d+)( +)(@\w+)").unwrap(),
+            regex::Regex::new(r"/ls").unwrap(),
+            regex::Regex::new(r"(^/download)( +)(\w+)").unwrap(),
+        ];
 
-// This parsing is trash, use regex instead.
-
-async fn handle_command(cx: UpdateWithCx<AutoSend<Bot>, Message>, command: Command) -> Result<(), Box<dyn std::error::Error + Send + Sync >> {
-    match command {
-        Command::Help => cx.answer(Command::descriptions()).await?,
-        Command::Balance(username) => {
-            println!("#{}#", username);
-            cx.answer(format!("Place holder {}", username)).await?
-        },
-        Command::Transfer { amount, to_username } => {
-            println!("#{}#{}#", amount, to_username);
-            cx.answer(format!("Place holder {} {}", amount, to_username)).await?
-        }
+       static ref WORDLIST_VALS: String = std::fs::read_to_string(WORDLIST_PATH).unwrap();
     };
+
+    let msg = cx.update.text().unwrap();
+    let user = cx.update.from().unwrap().username.as_ref().unwrap();
     
+    if SET[0].is_match(msg) { // balance
+        println!("balance");
+    }
+
+    if let Some(caps) = SET[1].captures(msg) { // transfer - caps.get(3) and caps.get(5)
+        println!("transfer - {} - {}", caps.get(3).unwrap().as_str(), caps.get(5).unwrap().as_str());
+    }
+
+    if SET[2].is_match(msg) { // ls
+        println!("ls");
+    }
+
+    if let Some(caps) = SET[3].captures(msg) { // download - caps.get(3)
+        println!("download - {}", caps.get(3).unwrap().as_str());
+    }
+
+    for word in msg.to_lowercase().split(' ').collect::<Vec<&str>>() {
+        if WORDLIST_VALS.contains(word) {
+            println!("Detected {}", word);
+        }
+    }
+
+
     Ok(())
 }
 
@@ -327,8 +354,8 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
 
     let bot = Bot::from_env().auto_send();
 
-    let bot_name = String::from("Shittyrustea");
-    teloxide::commands_repl(bot, bot_name, handle_command).await;
+
+    teloxide::repl(bot, bruh).await;
 
     Ok(())
 }
