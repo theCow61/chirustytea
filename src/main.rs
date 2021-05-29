@@ -307,6 +307,27 @@ const WORDLIST_PATH: &str = "wl.txt";
 //                    static ref WORDLIST_VALS: String = std::fs::read_to_string(WORDLIST_PATH).unwrap();
 //                }
 
+struct Commandment<'a> {
+    message: &'a Message,
+    ap: &'a UpdateWithCx<AutoSend<Bot>, Message>,
+    user: Option<&'a str>,
+}
+
+impl<'a> Commandment<'a> {
+    fn new(message: &'a Message, ap: &'a UpdateWithCx<AutoSend<Bot>, Message>) -> Self {
+        Self {
+            message,
+            ap,
+            user: None,
+        }
+    }
+
+    async fn balance(&mut self) {
+        self.user = Some(self.message.from().unwrap().username.as_ref().unwrap());
+    }
+
+}
+
 async fn bruh(cx: UpdateWithCx<AutoSend<Bot>, Message>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     lazy_static::lazy_static! {
         static ref SET: [regex::Regex; 4] = [
@@ -319,11 +340,19 @@ async fn bruh(cx: UpdateWithCx<AutoSend<Bot>, Message>) -> Result<(), Box<dyn st
        static ref WORDLIST_VALS: String = std::fs::read_to_string(WORDLIST_PATH).unwrap();
     };
 
-    let msg = cx.update.text().unwrap();
-    let user = cx.update.from().unwrap().username.as_ref().unwrap();
-    
+    let mut commandment = Commandment::new(&cx.update, &cx);
+
+
+    //let msg = cx.update.text().unwrap();
+    //let user = cx.update.from().unwrap().username.as_ref().unwrap();
+
+    let msg = commandment.message.text().unwrap();
+    let user = commandment.message.from().unwrap().username.as_ref().unwrap();
+
+
     if SET[0].is_match(msg) { // balance
         println!("balance");
+        commandment.balance();
     }
 
     if let Some(caps) = SET[1].captures(msg) { // transfer - caps.get(3) and caps.get(5)
@@ -349,7 +378,9 @@ async fn bruh(cx: UpdateWithCx<AutoSend<Bot>, Message>) -> Result<(), Box<dyn st
 }
 
 async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
-    dotenv::dotenv().expect(".env file not found...");
+    if cfg!(unix) {
+        dotenv::dotenv().expect(".env file not found...");
+    }
     teloxide::enable_logging!();
 
     let bot = Bot::from_env().auto_send();
