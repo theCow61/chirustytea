@@ -1,4 +1,4 @@
-// mod bank;
+ mod bank;
 // mod aws;
 use std::env;
 
@@ -307,7 +307,7 @@ const WORDLIST_PATH: &str = "wl.txt";
 //                    static ref WORDLIST_VALS: String = std::fs::read_to_string(WORDLIST_PATH).unwrap();
 //                }
 
-struct Commandment<'a> {
+pub struct Commandment<'a> {
     message: &'a Message,
     ap: &'a UpdateWithCx<AutoSend<Bot>, Message>,
     user: Option<&'a str>,
@@ -322,8 +322,19 @@ impl<'a> Commandment<'a> {
         }
     }
 
-    async fn balance(&mut self) {
+    async fn balance(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.user = Some(self.message.from().unwrap().username.as_ref().unwrap());
+        let mut bank = bank::Bank::new().await?;
+        match bank.get_balance(&self).await? {
+            0 => {
+                self.ap.answer("Your poor and have no Cow Sheckles 😑.").send().await?;
+            }
+            bal => {
+                self.ap.answer(format!("You got {} Cow Sheckles.", bal));
+            }
+        }
+
+        Ok(())
     }
 
 }
@@ -352,7 +363,7 @@ async fn bruh(cx: UpdateWithCx<AutoSend<Bot>, Message>) -> Result<(), Box<dyn st
 
     if SET[0].is_match(msg) { // balance
         println!("balance");
-        commandment.balance();
+        commandment.balance().await?;
     }
 
     if let Some(caps) = SET[1].captures(msg) { // transfer - caps.get(3) and caps.get(5)
@@ -387,6 +398,13 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
 
 
     teloxide::repl(bot, bruh).await;
+
+    // TODO
+    // Pass a reference to a one time created instance of the `Bank` struct in this method.
+    // Whenever a new `Commandment` struct gets created, it will have a field thats just a pointer
+    // to the `Bank` struct. [Reason: constructor `Bank::new` reads a file every time,
+    // reconstructing the same exact struct for every command doesn't make sense.]
+
 
     Ok(())
 }
