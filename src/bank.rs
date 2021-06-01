@@ -21,8 +21,9 @@ impl Bank {
             db_path: std::env::var("STAT_PATH")?,
         })
     }
-    pub async fn get_balance(&mut self, commandment: &Commandment<'_>) -> Result<u64, async_std::io::Error> {
-        let user = commandment.user.unwrap();
+    pub async fn get_balance(&mut self, bank_info: &super::BankInfo<'_>) -> Result<u64, async_std::io::Error> {
+        // let user = commandment.user.unwrap();
+        let user = bank_info.from_user.unwrap();
         self.null_nullifier(user).await?;
 
         Ok(self.json_object["CowSheckles"][user].as_u64().unwrap())

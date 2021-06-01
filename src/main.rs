@@ -310,7 +310,12 @@ const WORDLIST_PATH: &str = "wl.txt";
 pub struct Commandment<'a> {
     message: &'a Message,
     ap: &'a UpdateWithCx<AutoSend<Bot>, Message>,
-    user: Option<&'a str>,
+}
+
+pub struct BankInfo<'bruh> {
+    from_user: Option<&'bruh str>,
+    amount: Option<&'bruh u64>,
+    to_user: Option<&'bruh str>,
 }
 
 impl<'a> Commandment<'a> {
@@ -318,14 +323,18 @@ impl<'a> Commandment<'a> {
         Self {
             message,
             ap,
-            user: None,
         }
     }
 
     async fn balance(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        self.user = Some(self.message.from().unwrap().username.as_ref().unwrap());
+        // self.user = Some(self.message.from().unwrap().username.as_ref().unwrap());
+        let bank_info = BankInfo { // TODO make default values so you don't have to define `None` for every field.
+            from_user: Some(self.message.from().unwrap().username.as_ref().unwrap()),
+            amount: None,
+            to_user: None,
+        };
         let mut bank = bank::Bank::new().await?;
-        match bank.get_balance(&self).await? {
+        match bank.get_balance(&bank_info).await? {
             0 => {
                 self.ap.answer("Your poor and have no Cow Sheckles 😑.").send().await?;
             }
@@ -334,6 +343,16 @@ impl<'a> Commandment<'a> {
             }
         }
 
+        Ok(())
+    }
+
+    async fn transfer(&mut self, amount: &u64, to_user: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let bank_info = BankInfo {
+            from_user: Some(self.message.from().unwrap().username.as_ref().unwrap()),
+            amount: Some(&3),
+            to_user: Some("H"),
+        };
+        
         Ok(())
     }
 
@@ -358,11 +377,9 @@ async fn bruh(cx: UpdateWithCx<AutoSend<Bot>, Message>) -> Result<(), Box<dyn st
     //let user = cx.update.from().unwrap().username.as_ref().unwrap();
 
     let msg = commandment.message.text().unwrap();
-    let user = commandment.message.from().unwrap().username.as_ref().unwrap();
 
 
     if SET[0].is_match(msg) { // balance
-        println!("balance");
         commandment.balance().await?;
     }
 
