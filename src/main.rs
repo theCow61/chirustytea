@@ -368,6 +368,7 @@ async fn bruh(cx: UpdateWithCx<AutoSend<Bot>, Message>) -> Result<(), Box<dyn st
         ];
 
        static ref WORDLIST_VALS: String = std::fs::read_to_string(WORDLIST_PATH).unwrap();
+       static ref WORDLIST_WORDS: Vec<&'static str> = WORDLIST_VALS.split_ascii_whitespace().collect::<Vec<&'static str>>();
     };
 
     let mut commandment = Commandment::new(&cx.update, &cx);
@@ -395,12 +396,18 @@ async fn bruh(cx: UpdateWithCx<AutoSend<Bot>, Message>) -> Result<(), Box<dyn st
         println!("download - {}", caps.get(3).unwrap().as_str());
     }
 
-    for word in msg.to_lowercase().split(' ').collect::<Vec<&str>>() {
-        if WORDLIST_VALS.contains(word) {
-            println!("Detected {}", word);
+    // for word in msg.to_lowercase().split(' ').collect::<Vec<&str>>() {
+    //     if WORDLIST_VALS.contains(word) {
+    //         println!("Detected {}", word);
+    //     }
+    // }
+
+
+    for word in msg.to_lowercase().split_whitespace().collect::<Vec<&str>>() {
+        if WORDLIST_WORDS.contains(&word) {
+            println!("{}", word);
         }
     }
-
 
     Ok(())
 }
