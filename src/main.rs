@@ -349,14 +349,26 @@ impl<'a> Commandment<'a> {
     async fn transfer(&mut self, amount: &u64, to_user: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let bank_info = BankInfo {
             from_user: Some(self.message.from().unwrap().username.as_ref().unwrap()),
-            amount: Some(&3),
-            to_user: Some("H"),
+            amount: Some(amount),
+            to_user: Some(to_user),
         };
+
+        let mut bank = bank::Bank::new().await?;
+        match bank.transfer(&bank_info).await {
+            Ok(Some(_)) => {
+                self.ap.answer("Transfer complete 😃.").send().await?;
+            },
+            Ok(None) => {
+                self.ap.answer("Transfer failed: Your broke 🤣.").send().await?;
+            },
+            Err(_) => {}
+        }
         
         Ok(())
     }
 
 }
+
 
 async fn bruh(cx: UpdateWithCx<AutoSend<Bot>, Message>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     lazy_static::lazy_static! {
@@ -386,6 +398,7 @@ async fn bruh(cx: UpdateWithCx<AutoSend<Bot>, Message>) -> Result<(), Box<dyn st
 
     if let Some(caps) = SET[1].captures(msg) { // transfer - caps.get(3) and caps.get(5)
         println!("transfer - {} - {}", caps.get(3).unwrap().as_str(), caps.get(5).unwrap().as_str());
+        commandment.transfer(&caps.get(3).unwrap().as_str().parse::<u64>().unwrap(), caps.get(5).unwrap().as_str()).await?;
     }
 
     if SET[2].is_match(msg) { // ls
@@ -412,7 +425,7 @@ async fn bruh(cx: UpdateWithCx<AutoSend<Bot>, Message>) -> Result<(), Box<dyn st
     Ok(())
 }
 
-async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
+async fn async_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if cfg!(unix) {
         dotenv::dotenv().expect(".env file not found...");
     }
@@ -420,8 +433,11 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
 
     let bot = Bot::from_env().auto_send();
 
+    teloxide::repl(bot, |yo| async {
+        bruh(yo).await
+    }).await;
 
-    teloxide::repl(bot, bruh).await;
+    // Maybe make a struct that has a reference to bank.
 
     // TODO
     // Pass a reference to a one time created instance of the `Bank` struct in this method.

@@ -1,5 +1,4 @@
 //use async_compat::{Compat, CompatExt};
-use super::Commandment;
 use serde_json::{json /*to_string_pretty*/, Value as JsonValue};
 //use std::collections::HashMap;
 
@@ -27,6 +26,28 @@ impl Bank {
         self.null_nullifier(user).await?;
 
         Ok(self.json_object["CowSheckles"][user].as_u64().unwrap())
+    }
+
+    pub async fn transfer(&mut self, bank_info: &super::BankInfo<'_>) -> Result<Option<()>, async_std::io::Error> {
+        let user = format!("@{}", bank_info.from_user.unwrap());
+        let recepient = bank_info.to_user.unwrap();
+        let amount = bank_info.amount.unwrap();
+        self.null_nullifier(&user).await?;
+        self.null_nullifier(recepient).await?;
+        let user_amount = self.json_object["CowSheckles"][&user].as_u64().unwrap();
+        if user_amount < *amount {
+            return Ok(None)
+        }
+        if user_amount >= *amount {
+            let to_inc = self.json_object["CowSheckles"][recepient].as_u64().unwrap() + amount;
+            let to_dec = user_amount - amount;
+            self.json_object["CowSheckles"][recepient] = json!(to_inc);
+            self.json_object["CowSheckles"][user] = json!(to_dec);
+            let new_contents = serde_json::to_string_pretty(&self.json_object)?;
+            async_std::fs::write(&self.db_path, new_contents).await?;
+            return Ok(Some(()))
+        }
+        Ok(None)
     }
 
     async fn null_nullifier(&mut self, test_if_null: &str) -> Result<(), async_std::io::Error> {
