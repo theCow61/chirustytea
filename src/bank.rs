@@ -4,23 +4,27 @@ use serde_json::{json /*to_string_pretty*/, Value as JsonValue};
 
 const WORD_TOKEN_INC: u64 = 1;
 
-
 pub struct Bank {
     json_object: JsonValue,
-    db_path: String
+    db_path: String,
 }
 
 impl Bank {
     pub async fn new() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         dotenv::dotenv()?;
-        let contents = async_std::fs::read_to_string(std::env::var("STAT_PATH").expect("Env not set...")).await?;
+        let contents =
+            async_std::fs::read_to_string(std::env::var("STAT_PATH").expect("Env not set..."))
+                .await?;
         let res = serde_json::from_str(&contents)?;
         Ok(Self {
             json_object: res,
             db_path: std::env::var("STAT_PATH")?,
         })
     }
-    pub async fn get_balance(&mut self, bank_info: &super::BankInfo<'_>) -> Result<u64, async_std::io::Error> {
+    pub async fn get_balance(
+        &mut self,
+        bank_info: &super::BankInfo<'_>,
+    ) -> Result<u64, async_std::io::Error> {
         // let user = commandment.user.unwrap();
         let user = bank_info.from_user.unwrap();
         self.null_nullifier(user).await?;
@@ -28,7 +32,10 @@ impl Bank {
         Ok(self.json_object["CowSheckles"][user].as_u64().unwrap())
     }
 
-    pub async fn transfer(&mut self, bank_info: &super::BankInfo<'_>) -> Result<Option<()>, async_std::io::Error> {
+    pub async fn transfer(
+        &mut self,
+        bank_info: &super::BankInfo<'_>,
+    ) -> Result<Option<()>, async_std::io::Error> {
         let user = format!("@{}", bank_info.from_user.unwrap());
         let recepient = bank_info.to_user.unwrap();
         let amount = bank_info.amount.unwrap();
@@ -36,7 +43,7 @@ impl Bank {
         self.null_nullifier(recepient).await?;
         let user_amount = self.json_object["CowSheckles"][&user].as_u64().unwrap();
         if user_amount < *amount {
-            return Ok(None)
+            return Ok(None);
         }
         if user_amount >= *amount {
             let to_inc = self.json_object["CowSheckles"][recepient].as_u64().unwrap() + amount;
@@ -45,9 +52,25 @@ impl Bank {
             self.json_object["CowSheckles"][user] = json!(to_dec);
             let new_contents = serde_json::to_string_pretty(&self.json_object)?;
             async_std::fs::write(&self.db_path, new_contents).await?;
-            return Ok(Some(()))
+            return Ok(Some(()));
         }
         Ok(None)
+    }
+
+    pub async fn word_detected(
+        &mut self,
+        bank_info: &super::BankInfo<'_>,
+    ) -> Result<(), async_std::io::Error> {
+        let user = format!("@{}", bank_info.from_user.unwrap()); // Make usernames have a '@' in front while creating BankInfo struct.
+
+        self.null_nullifier(&user).await?;
+        let to_inc = self.json_object["CowSheckles"][&user].as_u64().unwrap() + WORD_TOKEN_INC;
+        self.json_object["CowSheckles"][user] = json!(to_inc);
+        let new_contents = serde_json::to_string_pretty(&self.json_object)?;
+        async_std::fs::write(&self.db_path, new_contents).await?;
+        // MAKE WORD GET RECORDED AND COUNT OF USE OF WORD STATISTICS.
+
+        Ok(())
     }
 
     async fn null_nullifier(&mut self, test_if_null: &str) -> Result<(), async_std::io::Error> {

@@ -1,14 +1,14 @@
- mod bank;
+mod bank;
 // mod aws;
 use std::env;
 
 use teloxide::{prelude::*, utils::command::BotCommand};
 
-use rusoto_core::Region;
-use rusoto_s3::S3Client;
+use async_std::io::Read;
 use async_std::stream::StreamExt;
 use async_std::task;
-use async_std::io::Read;
+use rusoto_core::Region;
+use rusoto_s3::S3Client;
 //use async_compat::{Compat, CompatExt};
 //use smol::prelude::*;
 //use smol::{io, Async};
@@ -24,7 +24,7 @@ const WORDLIST_PATH: &str = "wl.txt";
 //    api: &'bob Api,
 //    message: &'bob Message,
 //    pub cap_map: std::collections::HashMap<&'bob str, &'bob str>,
-    
+
 //    pub s3: &'bob aws::Aws<'bob>,
 //}
 
@@ -154,7 +154,7 @@ const WORDLIST_PATH: &str = "wl.txt";
 //                        regex::Regex::new(r"/ls").unwrap(),
 //                        regex::Regex::new(r"(^/download)( +)(\w+)").unwrap(),
 //                    ];
-                    
+
 //                    //static ref WORDLIST_VALS: String = async_std::fs::read_to_string(WORDLIST_PATH).await.unwrap();
 //                    static ref WORDLIST_VALS: String = std::fs::read_to_string(WORDLIST_PATH).unwrap();
 //                }
@@ -196,7 +196,7 @@ const WORDLIST_PATH: &str = "wl.txt";
 //                if SET[3].is_match(msg) {
 //                    self.aws_ls().await;
 //                }
-                
+
 //                if let Some(caps) = SET[4].captures(msg) {
 //                    // println!("{}", caps.get(3).unwrap().as_str());
 //                    self.aws_download(caps.get(3).unwrap().as_str().to_owned()).await;
@@ -243,7 +243,6 @@ const WORDLIST_PATH: &str = "wl.txt";
 
 //    Ok(())
 //}*/
-
 ////#[async_std::main]
 //async fn old_async_main() -> Result<(), Box<dyn std::error::Error>> {
 //    dotenv::dotenv().expect(".env file not found...");
@@ -257,7 +256,6 @@ const WORDLIST_PATH: &str = "wl.txt";
 //    /*smol::spawn(async move {
 //        they_prog(cloned).await.unwrap();
 //    }).detach();*/
-
 //    let s3 = aws::Aws::new("mycowbucket", Region::UsEast2);
 
 //    while let Some(update) = stream.next().await {
@@ -289,8 +287,6 @@ const WORDLIST_PATH: &str = "wl.txt";
 //    Ok(())
 //}
 
-
-
 //                lazy_static::lazy_static! {
 //                    // static ref SET: regex::RegexSet = regex::RegexSet::new(&[
 //                    //     r"(^/transfer)( +)(\d+)( +)(@\w+)", r"/get_ball",
@@ -302,7 +298,7 @@ const WORDLIST_PATH: &str = "wl.txt";
 //                        regex::Regex::new(r"/ls").unwrap(),
 //                        regex::Regex::new(r"(^/download)( +)(\w+)").unwrap(),
 //                    ];
-                    
+
 //                    //static ref WORDLIST_VALS: String = async_std::fs::read_to_string(WORDLIST_PATH).await.unwrap();
 //                    static ref WORDLIST_VALS: String = std::fs::read_to_string(WORDLIST_PATH).unwrap();
 //                }
@@ -318,17 +314,25 @@ pub struct BankInfo<'bruh> {
     to_user: Option<&'bruh str>,
 }
 
-impl<'a> Commandment<'a> {
-    fn new(message: &'a Message, ap: &'a UpdateWithCx<AutoSend<Bot>, Message>) -> Self {
+impl Default for BankInfo<'_> {
+    fn default() -> Self {
         Self {
-            message,
-            ap,
+            from_user: None,
+            amount: None,
+            to_user: None,
         }
     }
+}
 
-    async fn balance(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+impl<'a> Commandment<'a> {
+    fn new(message: &'a Message, ap: &'a UpdateWithCx<AutoSend<Bot>, Message>) -> Self {
+        Self { message, ap }
+    }
+
+    async fn balance(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // self.user = Some(self.message.from().unwrap().username.as_ref().unwrap());
-        let bank_info = BankInfo { // TODO make default values so you don't have to define `None` for every field.
+        let bank_info = BankInfo {
+            // TODO make default values so you don't have to define `None` for every field.
             from_user: Some(self.message.from().unwrap().username.as_ref().unwrap()),
             amount: None,
             to_user: None,
@@ -336,7 +340,10 @@ impl<'a> Commandment<'a> {
         let mut bank = bank::Bank::new().await?;
         match bank.get_balance(&bank_info).await? {
             0 => {
-                self.ap.answer("Your poor and have no Cow Sheckles 😑.").send().await?;
+                self.ap
+                    .answer("Your poor and have no Cow Sheckles 😑.")
+                    .send()
+                    .await?;
             }
             bal => {
                 self.ap.answer(format!("You got {} Cow Sheckles.", bal));
@@ -346,7 +353,11 @@ impl<'a> Commandment<'a> {
         Ok(())
     }
 
-    async fn transfer(&mut self, amount: &u64, to_user: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn transfer(
+        &self,
+        amount: &u64,
+        to_user: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let bank_info = BankInfo {
             from_user: Some(self.message.from().unwrap().username.as_ref().unwrap()),
             amount: Some(amount),
@@ -357,20 +368,34 @@ impl<'a> Commandment<'a> {
         match bank.transfer(&bank_info).await {
             Ok(Some(_)) => {
                 self.ap.answer("Transfer complete 😃.").send().await?;
-            },
+            }
             Ok(None) => {
-                self.ap.answer("Transfer failed: Your broke 🤣.").send().await?;
-            },
+                self.ap
+                    .answer("Transfer failed: Your broke 🤣.")
+                    .send()
+                    .await?;
+            }
             Err(_) => {}
         }
-        
+
         Ok(())
     }
 
+    async fn increment(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let bank_info = BankInfo {
+            from_user: Some(self.message.from().unwrap().username.as_ref().unwrap()),
+            ..Default::default()
+        };
+        let mut bank = bank::Bank::new().await?;
+        bank.word_detected(&bank_info).await?;
+
+        Ok(())
+    }
 }
 
-
-async fn bruh(cx: UpdateWithCx<AutoSend<Bot>, Message>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn bruh(
+    cx: UpdateWithCx<AutoSend<Bot>, Message>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     lazy_static::lazy_static! {
         static ref SET: [regex::Regex; 4] = [
             regex::Regex::new(r"/balance").unwrap(),
@@ -385,27 +410,38 @@ async fn bruh(cx: UpdateWithCx<AutoSend<Bot>, Message>) -> Result<(), Box<dyn st
 
     let mut commandment = Commandment::new(&cx.update, &cx);
 
-
     //let msg = cx.update.text().unwrap();
     //let user = cx.update.from().unwrap().username.as_ref().unwrap();
 
     let msg = commandment.message.text().unwrap();
 
-
-    if SET[0].is_match(msg) { // balance
+    if SET[0].is_match(msg) {
+        // balance
         commandment.balance().await?;
     }
 
-    if let Some(caps) = SET[1].captures(msg) { // transfer - caps.get(3) and caps.get(5)
-        println!("transfer - {} - {}", caps.get(3).unwrap().as_str(), caps.get(5).unwrap().as_str());
-        commandment.transfer(&caps.get(3).unwrap().as_str().parse::<u64>().unwrap(), caps.get(5).unwrap().as_str()).await?;
+    if let Some(caps) = SET[1].captures(msg) {
+        // transfer - caps.get(3) and caps.get(5)
+        println!(
+            "transfer - {} - {}",
+            caps.get(3).unwrap().as_str(),
+            caps.get(5).unwrap().as_str()
+        );
+        commandment
+            .transfer(
+                &caps.get(3).unwrap().as_str().parse::<u64>().unwrap(),
+                caps.get(5).unwrap().as_str(),
+            )
+            .await?;
     }
 
-    if SET[2].is_match(msg) { // ls
+    if SET[2].is_match(msg) {
+        // ls
         println!("ls");
     }
 
-    if let Some(caps) = SET[3].captures(msg) { // download - caps.get(3)
+    if let Some(caps) = SET[3].captures(msg) {
+        // download - caps.get(3)
         println!("download - {}", caps.get(3).unwrap().as_str());
     }
 
@@ -415,10 +451,10 @@ async fn bruh(cx: UpdateWithCx<AutoSend<Bot>, Message>) -> Result<(), Box<dyn st
     //     }
     // }
 
-
     for word in msg.to_lowercase().split_whitespace().collect::<Vec<&str>>() {
         if WORDLIST_WORDS.contains(&word) {
             println!("{}", word);
+            commandment.increment().await?;
         }
     }
 
@@ -433,9 +469,7 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let bot = Bot::from_env().auto_send();
 
-    teloxide::repl(bot, |yo| async {
-        bruh(yo).await
-    }).await;
+    teloxide::repl(bot, |yo| async { bruh(yo).await }).await;
 
     // Maybe make a struct that has a reference to bank.
 
@@ -444,7 +478,6 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Whenever a new `Commandment` struct gets created, it will have a field thats just a pointer
     // to the `Bank` struct. [Reason: constructor `Bank::new` reads a file every time,
     // reconstructing the same exact struct for every command doesn't make sense.]
-
 
     Ok(())
 }
