@@ -2,14 +2,18 @@ use rusoto_s3::S3Client;
 use rusoto_s3::S3;
 use rusoto_core;
 
-pub struct Aws<'a> {
+// const CLIENT: S3Client = S3Client::new(rusoto_core::Region::UsEast2);
+// const BUCKET: String = String::from("mycowbucket");
+
+pub struct Aws {
     client: S3Client,
-    bucket: &'a str, // Figure out how to keep this as `String`
+    bucket: String,
 }
 
-impl<'a> Aws<'a>{
-    pub fn new(bucket: &'a str, region: rusoto_core::Region) -> Self {
+impl Aws {
+    pub fn new(region: rusoto_core::Region) -> Self {
         let client = S3Client::new(region);
+        let bucket = String::from("mycowbucket");
         Self {
             client,
             bucket,
@@ -20,7 +24,7 @@ impl<'a> Aws<'a>{
 
 
         let result = self.client.list_objects_v2(rusoto_s3::ListObjectsV2Request {
-            bucket: self.bucket.to_owned(),
+            bucket: self.bucket.clone(),
             continuation_token: None,
             delimiter: None,
             encoding_type: None,
@@ -39,7 +43,7 @@ impl<'a> Aws<'a>{
     
     pub async fn download(&self, path: String) -> rusoto_core::ByteStream {
         let result = self.client.get_object(rusoto_s3::GetObjectRequest {
-            bucket: self.bucket.to_owned(),
+            bucket: self.bucket.clone(),
             expected_bucket_owner: None,
             if_match: None,
             if_modified_since: None,

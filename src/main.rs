@@ -1,5 +1,5 @@
 mod bank;
-// mod aws;
+mod aws;
 use std::env;
 
 use teloxide::{prelude::*, utils::command::BotCommand};
@@ -19,6 +19,7 @@ use rusoto_s3::S3Client;
 //use telegram_bot::{Api, Error, Message, MessageKind, /*ParseMode,*/ UpdateKind};
 
 const WORDLIST_PATH: &str = "wl.txt";
+const BUCKET_NAME: &'static str = "mycowbucket";
 
 //pub struct Commandment<'bob> {
 //    api: &'bob Api,
@@ -306,6 +307,7 @@ const WORDLIST_PATH: &str = "wl.txt";
 pub struct Commandment<'a> {
     message: &'a Message,
     ap: &'a UpdateWithCx<AutoSend<Bot>, Message>,
+    s3: &'a aws::Aws,
 }
 
 pub struct BankInfo<'bruh> {
@@ -325,8 +327,8 @@ impl Default for BankInfo<'_> {
 }
 
 impl<'a> Commandment<'a> {
-    fn new(message: &'a Message, ap: &'a UpdateWithCx<AutoSend<Bot>, Message>) -> Self {
-        Self { message, ap }
+    fn new(message: &'a Message, ap: &'a UpdateWithCx<AutoSend<Bot>, Message>, s3: &'a aws::Aws) -> Self {
+        Self { message, ap, s3,}
     }
 
     async fn balance(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -346,7 +348,7 @@ impl<'a> Commandment<'a> {
                     .await?;
             }
             bal => {
-                self.ap.answer(format!("You got {} Cow Sheckles.", bal));
+                self.ap.answer(format!("You got {} Cow Sheckles.", bal)).send().await?;
             }
         }
 
@@ -391,75 +393,75 @@ impl<'a> Commandment<'a> {
 
         Ok(())
     }
-}
+    async fn bruh(
+        &self,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        lazy_static::lazy_static! {
+            static ref SET: [regex::Regex; 4] = [
+                regex::Regex::new(r"/balance").unwrap(),
+                regex::Regex::new(r"(^/transfer)( +)(\d+)( +)(@\w+)").unwrap(),
+                regex::Regex::new(r"/ls").unwrap(),
+                regex::Regex::new(r"(^/download)( +)(\w+)").unwrap(),
+            ];
 
-async fn bruh(
-    cx: UpdateWithCx<AutoSend<Bot>, Message>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    lazy_static::lazy_static! {
-        static ref SET: [regex::Regex; 4] = [
-            regex::Regex::new(r"/balance").unwrap(),
-            regex::Regex::new(r"(^/transfer)( +)(\d+)( +)(@\w+)").unwrap(),
-            regex::Regex::new(r"/ls").unwrap(),
-            regex::Regex::new(r"(^/download)( +)(\w+)").unwrap(),
-        ];
+           static ref WORDLIST_VALS: String = std::fs::read_to_string(WORDLIST_PATH).unwrap();
+           static ref WORDLIST_WORDS: Vec<&'static str> = WORDLIST_VALS.split_ascii_whitespace().collect::<Vec<&'static str>>();
+        };
 
-       static ref WORDLIST_VALS: String = std::fs::read_to_string(WORDLIST_PATH).unwrap();
-       static ref WORDLIST_WORDS: Vec<&'static str> = WORDLIST_VALS.split_ascii_whitespace().collect::<Vec<&'static str>>();
-    };
+        // over here commandment   
 
-    let mut commandment = Commandment::new(&cx.update, &cx);
+        //let msg = cx.update.text().unwrap();
+        //let user = cx.update.from().unwrap().username.as_ref().unwrap();
 
-    //let msg = cx.update.text().unwrap();
-    //let user = cx.update.from().unwrap().username.as_ref().unwrap();
+        let msg = self.message.text().unwrap();
 
-    let msg = commandment.message.text().unwrap();
-
-    if SET[0].is_match(msg) {
-        // balance
-        commandment.balance().await?;
-    }
-
-    if let Some(caps) = SET[1].captures(msg) {
-        // transfer - caps.get(3) and caps.get(5)
-        println!(
-            "transfer - {} - {}",
-            caps.get(3).unwrap().as_str(),
-            caps.get(5).unwrap().as_str()
-        );
-        commandment
-            .transfer(
-                &caps.get(3).unwrap().as_str().parse::<u64>().unwrap(),
-                caps.get(5).unwrap().as_str(),
-            )
-            .await?;
-    }
-
-    if SET[2].is_match(msg) {
-        // ls
-        println!("ls");
-    }
-
-    if let Some(caps) = SET[3].captures(msg) {
-        // download - caps.get(3)
-        println!("download - {}", caps.get(3).unwrap().as_str());
-    }
-
-    // for word in msg.to_lowercase().split(' ').collect::<Vec<&str>>() {
-    //     if WORDLIST_VALS.contains(word) {
-    //         println!("Detected {}", word);
-    //     }
-    // }
-
-    for word in msg.to_lowercase().split_whitespace().collect::<Vec<&str>>() {
-        if WORDLIST_WORDS.contains(&word) {
-            println!("{}", word);
-            commandment.increment().await?;
+        if SET[0].is_match(msg) {
+            // balance
+            self.balance().await?;
         }
-    }
 
-    Ok(())
+        if let Some(caps) = SET[1].captures(msg) {
+            // transfer - caps.get(3) and caps.get(5)
+            println!(
+                "transfer - {} - {}",
+                caps.get(3).unwrap().as_str(),
+                caps.get(5).unwrap().as_str()
+            );
+            self 
+                .transfer(
+                    &caps.get(3).unwrap().as_str().parse::<u64>().unwrap(),
+                    caps.get(5).unwrap().as_str(),
+                )
+                .await?;
+        }
+
+        if SET[2].is_match(msg) {
+            // ls
+            println!("ls");
+        }
+
+        if let Some(caps) = SET[3].captures(msg) {
+            // download - caps.get(3)
+            println!("download - {}", caps.get(3).unwrap().as_str());
+        }
+
+        // for word in msg.to_lowercase().split(' ').collect::<Vec<&str>>() {
+        //     if WORDLIST_VALS.contains(word) {
+        //         println!("Detected {}", word);
+        //     }
+        // }
+
+        for word in msg.to_lowercase().split_whitespace().collect::<Vec<&str>>() {
+            if WORDLIST_WORDS.contains(&word) {
+                println!("{}", word);
+                self.increment().await?;
+            }
+        }
+
+        Ok(())
+    }
 }
+
 
 async fn async_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if cfg!(unix) {
@@ -468,8 +470,16 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     teloxide::enable_logging!();
 
     let bot = Bot::from_env().auto_send();
+    lazy_static::lazy_static! {
+        static ref AWSS3: aws::Aws = aws::Aws::new(rusoto_core::Region::UsEast2);
+    }
 
-    teloxide::repl(bot, |yo| async { bruh(yo).await }).await;
+    teloxide::repl(bot, |yo| async move { 
+        // let mut commandment = Commandment::new(&cx.update, &cx, &s3);
+        let mut commandment = Commandment::new(&yo.update, &yo, &AWSS3);
+        commandment.bruh().await
+        // bruh(yo, s3).await
+    }).await;
 
     // Maybe make a struct that has a reference to bank.
 

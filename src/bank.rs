@@ -26,8 +26,8 @@ impl Bank {
         bank_info: &super::BankInfo<'_>,
     ) -> Result<u64, async_std::io::Error> {
         // let user = commandment.user.unwrap();
-        let user = bank_info.from_user.unwrap();
-        self.null_nullifier(user).await?;
+        let user = format!("@{}", bank_info.from_user.unwrap());
+        self.null_nullifier(&user).await?;
 
         Ok(self.json_object["CowSheckles"][user].as_u64().unwrap())
     }
