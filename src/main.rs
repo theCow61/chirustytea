@@ -1,5 +1,5 @@
-mod bank;
 mod aws;
+mod bank;
 use std::env;
 
 use teloxide::{prelude::*, utils::command::BotCommand};
@@ -327,8 +327,12 @@ impl Default for BankInfo<'_> {
 }
 
 impl<'a> Commandment<'a> {
-    fn new(message: &'a Message, ap: &'a UpdateWithCx<AutoSend<Bot>, Message>, s3: &'a aws::Aws) -> Self {
-        Self { message, ap, s3,}
+    fn new(
+        message: &'a Message,
+        ap: &'a UpdateWithCx<AutoSend<Bot>, Message>,
+        s3: &'a aws::Aws,
+    ) -> Self {
+        Self { message, ap, s3 }
     }
 
     async fn balance(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -348,7 +352,10 @@ impl<'a> Commandment<'a> {
                     .await?;
             }
             bal => {
-                self.ap.answer(format!("You got {} Cow Sheckles.", bal)).send().await?;
+                self.ap
+                    .answer(format!("You got {} Cow Sheckles.", bal))
+                    .send()
+                    .await?;
             }
         }
 
@@ -383,6 +390,18 @@ impl<'a> Commandment<'a> {
         Ok(())
     }
 
+    async fn s3_ls(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let objects_list = self.s3.ls().await;
+        let mut files = String::new();
+        for object in objects_list {
+            files.push_str(&object.key.unwrap());
+            files.push('\n');
+        }
+        self.ap.answer(files).send().await?;
+
+        Ok(())
+    }
+
     async fn increment(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let bank_info = BankInfo {
             from_user: Some(self.message.from().unwrap().username.as_ref().unwrap()),
@@ -393,9 +412,7 @@ impl<'a> Commandment<'a> {
 
         Ok(())
     }
-    async fn bruh(
-        &self,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn bruh(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         lazy_static::lazy_static! {
             static ref SET: [regex::Regex; 4] = [
                 regex::Regex::new(r"/balance").unwrap(),
@@ -408,7 +425,7 @@ impl<'a> Commandment<'a> {
            static ref WORDLIST_WORDS: Vec<&'static str> = WORDLIST_VALS.split_ascii_whitespace().collect::<Vec<&'static str>>();
         };
 
-        // over here commandment   
+        // over here commandment
 
         //let msg = cx.update.text().unwrap();
         //let user = cx.update.from().unwrap().username.as_ref().unwrap();
@@ -427,16 +444,16 @@ impl<'a> Commandment<'a> {
                 caps.get(3).unwrap().as_str(),
                 caps.get(5).unwrap().as_str()
             );
-            self 
-                .transfer(
-                    &caps.get(3).unwrap().as_str().parse::<u64>().unwrap(),
-                    caps.get(5).unwrap().as_str(),
-                )
-                .await?;
+            self.transfer(
+                &caps.get(3).unwrap().as_str().parse::<u64>().unwrap(),
+                caps.get(5).unwrap().as_str(),
+            )
+            .await?;
         }
 
         if SET[2].is_match(msg) {
             // ls
+            self.s3_ls().await?;
             println!("ls");
         }
 
@@ -462,7 +479,6 @@ impl<'a> Commandment<'a> {
     }
 }
 
-
 async fn async_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if cfg!(unix) {
         dotenv::dotenv().expect(".env file not found...");
@@ -474,12 +490,13 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         static ref AWSS3: aws::Aws = aws::Aws::new(rusoto_core::Region::UsEast2);
     }
 
-    teloxide::repl(bot, |yo| async move { 
+    teloxide::repl(bot, |yo| async move {
         // let mut commandment = Commandment::new(&cx.update, &cx, &s3);
         let mut commandment = Commandment::new(&yo.update, &yo, &AWSS3);
         commandment.bruh().await
         // bruh(yo, s3).await
-    }).await;
+    })
+    .await;
 
     // Maybe make a struct that has a reference to bank.
 
