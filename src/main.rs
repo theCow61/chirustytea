@@ -2,13 +2,8 @@ mod aws;
 mod bank;
 use std::env;
 
-use teloxide::{prelude::*, utils::command::BotCommand};
-
-use async_std::io::Read;
-use async_std::stream::StreamExt;
+use teloxide::{Bot, net::Download, prelude::{*}, types::File as TgFile};
 use async_std::task;
-use rusoto_core::Region;
-use rusoto_s3::S3Client;
 //use async_compat::{Compat, CompatExt};
 //use smol::prelude::*;
 //use smol::{io, Async};
@@ -316,6 +311,11 @@ pub struct BankInfo<'bruh> {
     to_user: Option<&'bruh str>,
 }
 
+// pub struct AwsInfo<'burger> {
+//     file_name: Option<&'burger str>,
+//     file_contents: Option<&'burger Vec<u8>>,
+// }
+
 impl Default for BankInfo<'_> {
     fn default() -> Self {
         Self {
@@ -330,6 +330,7 @@ impl<'a> Commandment<'a> {
     fn new(
         message: &'a Message,
         ap: &'a UpdateWithCx<AutoSend<Bot>, Message>,
+        // ap: &'a Bot,
         s3: &'a aws::Aws,
     ) -> Self {
         Self { message, ap, s3 }
@@ -414,15 +415,17 @@ impl<'a> Commandment<'a> {
     }
     async fn bruh(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         lazy_static::lazy_static! {
-            static ref SET: [regex::Regex; 4] = [
-                regex::Regex::new(r"/balance").unwrap(),
-                regex::Regex::new(r"(^/transfer)( +)(\d+)( +)(@\w+)").unwrap(),
-                regex::Regex::new(r"/ls").unwrap(),
-                regex::Regex::new(r"(^/download)( +)(\w+)").unwrap(),
+            static ref SET: [regex::Regex; 5] = [
+                regex::Regex::new(r"/balance").unwrap(),                            // /balance                     - 0
+                regex::Regex::new(r"(^/transfer)( +)(\d+)( +)(@\w+)").unwrap(),     // /transfer <amount> <@user>   - 1
+                regex::Regex::new(r"/ls").unwrap(),                                 // /ls                          - 2
+                regex::Regex::new(r"(^/download)( +)(\w+)").unwrap(),               // /download <path>             - 3
+                regex::Regex::new(r"/upload").unwrap(),                             // /upload                      - 4
             ];
 
            static ref WORDLIST_VALS: String = std::fs::read_to_string(WORDLIST_PATH).unwrap();
-           static ref WORDLIST_WORDS: Vec<&'static str> = WORDLIST_VALS.split_ascii_whitespace().collect::<Vec<&'static str>>();
+           // static ref WORDLIST_WORDS: Vec<&'static str> = WORDLIST_VALS.split_ascii_whitespace().collect::<Vec<&'static str>>();
+           static ref WORDLIST_WORDS: Vec<&'static str> = WORDLIST_VALS.split_whitespace().collect::<Vec<&'static str>>();
         };
 
         // over here commandment
@@ -430,50 +433,62 @@ impl<'a> Commandment<'a> {
         //let msg = cx.update.text().unwrap();
         //let user = cx.update.from().unwrap().username.as_ref().unwrap();
 
-        let msg = self.message.text().unwrap();
-
-        if SET[0].is_match(msg) {
-            // balance
-            self.balance().await?;
-        }
-
-        if let Some(caps) = SET[1].captures(msg) {
-            // transfer - caps.get(3) and caps.get(5)
-            println!(
-                "transfer - {} - {}",
-                caps.get(3).unwrap().as_str(),
-                caps.get(5).unwrap().as_str()
-            );
-            self.transfer(
-                &caps.get(3).unwrap().as_str().parse::<u64>().unwrap(),
-                caps.get(5).unwrap().as_str(),
-            )
-            .await?;
-        }
-
-        if SET[2].is_match(msg) {
-            // ls
-            self.s3_ls().await?;
-            println!("ls");
-        }
-
-        if let Some(caps) = SET[3].captures(msg) {
-            // download - caps.get(3)
-            println!("download - {}", caps.get(3).unwrap().as_str());
-        }
-
-        // for word in msg.to_lowercase().split(' ').collect::<Vec<&str>>() {
-        //     if WORDLIST_VALS.contains(word) {
-        //         println!("Detected {}", word);
-        //     }
-        // }
-
-        for word in msg.to_lowercase().split_whitespace().collect::<Vec<&str>>() {
-            if WORDLIST_WORDS.contains(&word) {
-                println!("{}", word);
-                self.increment().await?;
+        if let Some(document) = self.message.document() {
+            if let Some(caption) = self.message.caption() {
+                if SET[4].is_match(caption) {
+                    let TgFile { file_path, .. } = self.ap.requester.get_file(&document.file_id).send().await?;
+                    // let file_name = document.file_name.as_ref().unwrap();
+                    let mut yod = Vec::new();
+                    self.ap.requester.download_file(&file_path, &mut yod).await?;
+                    self.s3.upload(document.file_name.as_ref().unwrap(), yod).await?;
+                }
             }
         }
+        if let Some(msg) = self.message.text() {
+            if SET[0].is_match(msg) {
+                // balance
+                self.balance().await?;
+            }
+
+            if let Some(caps) = SET[1].captures(msg) {
+                // transfer - caps.get(3) and caps.get(5)
+                println!(
+                    "transfer - {} - {}",
+                    caps.get(3).unwrap().as_str(),
+                    caps.get(5).unwrap().as_str()
+                );
+                self.transfer(
+                    &caps.get(3).unwrap().as_str().parse::<u64>().unwrap(),
+                    caps.get(5).unwrap().as_str(),
+                )
+                .await?;
+            }
+
+            if SET[2].is_match(msg) {
+                // ls
+                self.s3_ls().await?;
+                println!("ls");
+            }
+
+            if let Some(caps) = SET[3].captures(msg) {
+                // download - caps.get(3)
+                println!("download - {}", caps.get(3).unwrap().as_str());
+            }
+
+            // for word in msg.to_lowercase().split(' ').collect::<Vec<&str>>() {
+            //     if WORDLIST_VALS.contains(word) {
+            //         println!("Detected {}", word);
+            //     }
+            // }
+
+            for word in msg.to_lowercase().split_whitespace().collect::<Vec<&str>>() {
+                if WORDLIST_WORDS.contains(&word) {
+                    println!("{}", word);
+                    self.increment().await?;
+                }
+            }
+        }
+
 
         Ok(())
     }
@@ -486,13 +501,14 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     teloxide::enable_logging!();
 
     let bot = Bot::from_env().auto_send();
+    // let bot = Bot::from_env();
     lazy_static::lazy_static! {
         static ref AWSS3: aws::Aws = aws::Aws::new(rusoto_core::Region::UsEast2);
     }
 
     teloxide::repl(bot, |yo| async move {
         // let mut commandment = Commandment::new(&cx.update, &cx, &s3);
-        let mut commandment = Commandment::new(&yo.update, &yo, &AWSS3);
+        let commandment = Commandment::new(&yo.update, &yo, &AWSS3);
         commandment.bruh().await
         // bruh(yo, s3).await
     })

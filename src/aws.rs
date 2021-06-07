@@ -1,4 +1,4 @@
-use rusoto_core;
+use rusoto_core::ByteStream;
 use rusoto_s3::S3Client;
 use rusoto_s3::S3;
 
@@ -68,5 +68,17 @@ impl Aws {
             .await
             .unwrap();
         return result.body.unwrap();
+    }
+    // pub async fn upload(&self, info: super::AwsInfo<'_>, chill: std::pin::Pin<Box<async_std::stream::Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Sync + Send>>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> { // Make this into a stream one day when your less retarded.
+        pub async fn upload(&self, file_name: &String, file_contents: Vec<u8>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> { // Dereference `file_name` to use `String` instaid of making it into a `&str` later on.
+        // let yo = ByteStream::from(info.file_contents.as_deref().unwrap());
+        let stream = ByteStream::from(file_contents);
+        self.client.put_object(rusoto_s3::PutObjectRequest {
+            bucket: self.bucket.clone(),
+            body: Some(stream),
+            key: file_name.to_owned(),
+            ..Default::default()
+        }).await.unwrap();
+        Ok(())
     }
 }
