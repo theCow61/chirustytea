@@ -40,7 +40,7 @@ impl Aws {
         // }
     }
 
-    pub async fn download(&self, path: String) -> rusoto_core::ByteStream {
+    pub async fn download(&self, path: &str) -> rusoto_core::ByteStream {
         let result = self
             .client
             .get_object(rusoto_s3::GetObjectRequest {
@@ -50,7 +50,7 @@ impl Aws {
                 if_modified_since: None,
                 if_none_match: None,
                 if_unmodified_since: None,
-                key: path,
+                key: path.to_owned(),
                 part_number: None, // do this later
                 range: None,       // do this later
                 request_payer: None,
@@ -72,10 +72,10 @@ impl Aws {
     // pub async fn upload(&self, info: super::AwsInfo<'_>, chill: std::pin::Pin<Box<async_std::stream::Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Sync + Send>>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> { // Make this into a stream one day when your less retarded.
         pub async fn upload(&self, file_name: &String, file_contents: Vec<u8>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> { // Dereference `file_name` to use `String` instaid of making it into a `&str` later on.
         // let yo = ByteStream::from(info.file_contents.as_deref().unwrap());
-        let stream = ByteStream::from(file_contents);
+        // let stream = ByteStream::from(file_contents);
         self.client.put_object(rusoto_s3::PutObjectRequest {
             bucket: self.bucket.clone(),
-            body: Some(stream),
+            body: Some(ByteStream::from(file_contents)),
             key: file_name.to_owned(),
             ..Default::default()
         }).await.unwrap();

@@ -1,0 +1,13 @@
+words
+like
+this
+rename
+this
+to
+wl.txt
+add
+any
+words
+you
+want
+here

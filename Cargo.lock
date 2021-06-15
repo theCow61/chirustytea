@@ -48,7 +48,6 @@ dependencies = [
  "futures-lite",
  "num_cpus",
  "once_cell",
- "tokio 0.2.25",
  "tokio 1.6.0",
 ]
 

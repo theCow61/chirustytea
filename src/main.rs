@@ -435,12 +435,17 @@ impl<'a> Commandment<'a> {
 
         if let Some(document) = self.message.document() {
             if let Some(caption) = self.message.caption() {
+                if let Some(caps) = SET[3].captures(caption) {
+                    println!("download - {}", caps.get(3).unwrap().as_str());
+                    let stream = self.s3.download(caps.get(3).unwrap().as_str()).await;
+                    // self.ap.answer_document(teloxide::types::InputFile::file(stream)).await;
+                }
                 if SET[4].is_match(caption) {
                     let TgFile { file_path, .. } = self.ap.requester.get_file(&document.file_id).send().await?;
                     // let file_name = document.file_name.as_ref().unwrap();
-                    let mut yod = Vec::new();
-                    self.ap.requester.download_file(&file_path, &mut yod).await?;
-                    self.s3.upload(document.file_name.as_ref().unwrap(), yod).await?;
+                    let mut file_contents = Vec::new();
+                    self.ap.requester.download_file(&file_path, &mut file_contents).await?;
+                    self.s3.upload(document.file_name.as_ref().unwrap(), file_contents).await?;
                 }
             }
         }
