@@ -26,8 +26,9 @@ impl Bank {
         bank_info: &super::BankInfo<'_>,
     ) -> Result<u64, async_std::io::Error> {
         // let user = commandment.user.unwrap();
-        let user = format!("@{}", bank_info.from_user.unwrap());
-        self.null_nullifier(&user).await?;
+        // let user = format!("@{}", bank_info.from_user.unwrap());
+        let user = bank_info.from_user.unwrap();
+        self.null_nullifier(user).await?;
 
         Ok(self.json_object["CowSheckles"][user].as_u64().unwrap())
     }
@@ -36,12 +37,13 @@ impl Bank {
         &mut self,
         bank_info: &super::BankInfo<'_>,
     ) -> Result<Option<()>, async_std::io::Error> {
-        let user = format!("@{}", bank_info.from_user.unwrap());
+        // let user = format!("@{}", bank_info.from_user.unwrap());
+        let user = bank_info.from_user.unwrap();
         let recepient = bank_info.to_user.unwrap();
         let amount = bank_info.amount.unwrap();
-        self.null_nullifier(&user).await?;
+        self.null_nullifier(user).await?;
         self.null_nullifier(recepient).await?;
-        let user_amount = self.json_object["CowSheckles"][&user].as_u64().unwrap();
+        let user_amount = self.json_object["CowSheckles"][user].as_u64().unwrap();
         if user_amount < *amount {
             return Ok(None);
         }
@@ -61,10 +63,11 @@ impl Bank {
         &mut self,
         bank_info: &super::BankInfo<'_>,
     ) -> Result<(), async_std::io::Error> {
-        let user = format!("@{}", bank_info.from_user.unwrap()); // Make usernames have a '@' in front while creating BankInfo struct.
+        // let user = format!("@{}", bank_info.from_user.unwrap()); // Make usernames have a '@' in front while creating BankInfo struct.
+        let user = bank_info.from_user.unwrap();
 
-        self.null_nullifier(&user).await?;
-        let to_inc = self.json_object["CowSheckles"][&user].as_u64().unwrap() + WORD_TOKEN_INC;
+        self.null_nullifier(user).await?;
+        let to_inc = self.json_object["CowSheckles"][user].as_u64().unwrap() + WORD_TOKEN_INC;
         self.json_object["CowSheckles"][user] = json!(to_inc);
         let new_contents = serde_json::to_string_pretty(&self.json_object)?;
         async_std::fs::write(&self.db_path, new_contents).await?;

@@ -417,7 +417,8 @@ impl<'a> Commandment<'a> {
         lazy_static::lazy_static! {
             static ref SET: [regex::Regex; 5] = [
                 regex::Regex::new(r"/balance").unwrap(),                            // /balance                     - 0
-                regex::Regex::new(r"(^/transfer)( +)(\d+)( +)(@\w+)").unwrap(),     // /transfer <amount> <@user>   - 1
+                // regex::Regex::new(r"(^/transfer)( +)(\d+)( +)(@\w+)").unwrap(),     // /transfer <amount> <@user>   - 1
+                regex::Regex::new(r"(^/transfer)( +)(\d+)( +)@(\w+)").unwrap(),
                 regex::Regex::new(r"/ls").unwrap(),                                 // /ls                          - 2
                 regex::Regex::new(r"(^/download)( +)(\w+)").unwrap(),               // /download <path>             - 3
                 regex::Regex::new(r"/upload").unwrap(),                             // /upload                      - 4
