@@ -416,12 +416,12 @@ impl<'a> Commandment<'a> {
     async fn bruh(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         lazy_static::lazy_static! {
             static ref SET: [regex::Regex; 5] = [
-                regex::Regex::new(r"/balance").unwrap(),                            // /balance                     - 0
+                regex::Regex::new(r"^/balance$").unwrap(),                            // /balance                     - 0
                 // regex::Regex::new(r"(^/transfer)( +)(\d+)( +)(@\w+)").unwrap(),     // /transfer <amount> <@user>   - 1
-                regex::Regex::new(r"(^/transfer)( +)(\d+)( +)@(\w+)").unwrap(),
-                regex::Regex::new(r"/ls +([\w/]+)").unwrap(),                                 // /ls                          - 2
-                regex::Regex::new(r"(^/download)( +)(\w+)").unwrap(),               // /download <path>             - 3
-                regex::Regex::new(r"/upload").unwrap(),                             // /upload                      - 4
+                regex::Regex::new(r"^/transfer +(\d+) +@(\w+)").unwrap(),
+                regex::Regex::new(r"^/ls +([\w/]+)").unwrap(),                                 // /ls                          - 2
+                regex::Regex::new(r"^/download +(\w+)").unwrap(),               // /download <path>             - 3
+                regex::Regex::new(r"^/upload$").unwrap(),                             // /upload                      - 4
             ];
 
            static ref WORDLIST_VALS: String = std::fs::read_to_string(WORDLIST_PATH).unwrap();
@@ -436,11 +436,11 @@ impl<'a> Commandment<'a> {
 
         if let Some(document) = self.message.document() {
             if let Some(caption) = self.message.caption() {
-                if let Some(caps) = SET[3].captures(caption) {
-                    println!("download - {}", caps.get(3).unwrap().as_str());
-                    let stream = self.s3.download(caps.get(3).unwrap().as_str()).await;
-                    // self.ap.answer_document(teloxide::types::InputFile::file(stream)).await;
-                }
+                // if let Some(caps) = SET[3].captures(caption) {
+                //     println!("download - {}", caps.get(3).unwrap().as_str());
+                //     let stream = self.s3.download(caps.get(3).unwrap().as_str()).await;
+                //     // self.ap.answer_document(teloxide::types::InputFile::file(stream)).await;
+                // }
                 if SET[4].is_match(caption) {
                     let TgFile { file_path, .. } = self.ap.requester.get_file(&document.file_id).send().await?;
                     // let file_name = document.file_name.as_ref().unwrap();
@@ -460,12 +460,12 @@ impl<'a> Commandment<'a> {
                 // transfer - caps.get(3) and caps.get(5)
                 println!(
                     "transfer - {} - {}",
-                    caps.get(3).unwrap().as_str(),
-                    caps.get(5).unwrap().as_str()
+                    caps.get(1).unwrap().as_str(),
+                    caps.get(2).unwrap().as_str()
                 );
                 self.transfer(
-                    &caps.get(3).unwrap().as_str().parse::<u64>().unwrap(),
-                    caps.get(5).unwrap().as_str(),
+                    &caps.get(1).unwrap().as_str().parse::<u64>().unwrap(),
+                    caps.get(2).unwrap().as_str(),
                 )
                 .await?;
             }
