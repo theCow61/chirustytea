@@ -391,8 +391,8 @@ impl<'a> Commandment<'a> {
         Ok(())
     }
 
-    async fn s3_ls(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let objects_list = self.s3.ls().await;
+    async fn s3_ls(&self, path: Option<String>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let objects_list = self.s3.ls(path).await;
         let mut files = String::new();
         for object in objects_list {
             files.push_str(&object.key.unwrap());
@@ -419,7 +419,7 @@ impl<'a> Commandment<'a> {
                 regex::Regex::new(r"/balance").unwrap(),                            // /balance                     - 0
                 // regex::Regex::new(r"(^/transfer)( +)(\d+)( +)(@\w+)").unwrap(),     // /transfer <amount> <@user>   - 1
                 regex::Regex::new(r"(^/transfer)( +)(\d+)( +)@(\w+)").unwrap(),
-                regex::Regex::new(r"/ls").unwrap(),                                 // /ls                          - 2
+                regex::Regex::new(r"/ls +([\w/]+)").unwrap(),                                 // /ls                          - 2
                 regex::Regex::new(r"(^/download)( +)(\w+)").unwrap(),               // /download <path>             - 3
                 regex::Regex::new(r"/upload").unwrap(),                             // /upload                      - 4
             ];
@@ -470,10 +470,13 @@ impl<'a> Commandment<'a> {
                 .await?;
             }
 
-            if SET[2].is_match(msg) {
-                // ls
-                self.s3_ls().await?;
+            if msg == "/ls" {
                 println!("ls");
+                self.s3_ls(None).await?;
+            }
+            if let Some(caps) = SET[2].captures(msg) {
+                println!("ls");
+                self.s3_ls(Some(caps.get(1).unwrap().as_str().to_owned())).await?;
             }
 
             if let Some(caps) = SET[3].captures(msg) {

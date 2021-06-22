@@ -17,7 +17,7 @@ impl Aws {
         Self { client, bucket }
     }
 
-    pub async fn ls(&self) -> Vec<rusoto_s3::Object> {
+    pub async fn ls(&self, path: Option<String>) -> Vec<rusoto_s3::Object> {
         let result = self
             .client
             .list_objects_v2(rusoto_s3::ListObjectsV2Request {
@@ -28,7 +28,7 @@ impl Aws {
                 expected_bucket_owner: None,
                 fetch_owner: None,
                 max_keys: None, // Some(24)
-                prefix: None,
+                prefix: path,
                 request_payer: None,
                 start_after: None,
             })
